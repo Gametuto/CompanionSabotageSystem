@@ -31,6 +31,9 @@ namespace CompanionSabotageSystem
         [SaveableField(5)]
         public float TotalLoyaltyLost = 0f;
 
+        [SaveableField(7)]
+        public string PartyId;
+
         public SpyData() { }
 
         public SpyData(Hero agent, Settlement target, int days, SpyState state)
