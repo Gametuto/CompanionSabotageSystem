@@ -1,12 +1,12 @@
-﻿using System.Collections.Generic;
-using TaleWorlds.CampaignSystem;
+﻿using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.GameMenus;
 using TaleWorlds.CampaignSystem.Party;
 using TaleWorlds.CampaignSystem.Settlements;
-using TaleWorlds.Core;
 using TaleWorlds.Core.ImageIdentifiers;
+using TaleWorlds.Core;
 using TaleWorlds.Library;
-using TaleWorlds.Localization; // Nécessaire
+using TaleWorlds.Localization;
+using System.Collections.Generic;
 
 namespace CompanionSabotageSystem
 {
@@ -36,16 +36,32 @@ namespace CompanionSabotageSystem
 
         private void OnSessionLaunched(CampaignGameStarter starter)
         {
-            // Utilisation de la clé css_menu_option
-            starter.AddGameMenuOption("town", "sabotage_mission", "{=css_menu_option}Send an Agent",
-                args =>
-                {
-                    args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
-                    if (Settlement.CurrentSettlement == null || Settlement.CurrentSettlement.IsVillage) return false;
-                    if (Settlement.CurrentSettlement.OwnerClan == Clan.PlayerClan || Settlement.CurrentSettlement.IsUnderSiege) return false;
-                    return true;
-                },
-                args => OpenSpySelectionList(), false, 2);
+            bool CanSendSpy(MenuCallbackArgs args)
+            {
+                args.optionLeaveType = GameMenuOption.LeaveType.Submenu;
+
+                // Vérifications de base
+                if (Settlement.CurrentSettlement == null || Settlement.CurrentSettlement.IsVillage) return false;
+
+                // Interdiction : Chez nous, ou si siège en cours
+                if (Settlement.CurrentSettlement.OwnerClan == Clan.PlayerClan || Settlement.CurrentSettlement.IsUnderSiege) return false;
+
+                return true;
+            }
+
+            void OpenSpyMenu(MenuCallbackArgs args)
+            {
+                OpenSpySelectionList();
+            }
+            // ------------------------------------------
+
+            // 1. Menu pour les VILLES ("town")
+            starter.AddGameMenuOption("town", "sabotage_mission_town", "{=css_menu_option}Send an Agent",
+                CanSendSpy, OpenSpyMenu, false, 2);
+
+            // 2. Menu pour les CHÂTEAUX ("castle")
+            starter.AddGameMenuOption("castle", "sabotage_mission_castle", "{=css_menu_option}Send an Agent",
+                CanSendSpy, OpenSpyMenu, false, 2);
         }
 
         private void OpenSpySelectionList()
@@ -61,7 +77,6 @@ namespace CompanionSabotageSystem
 
                     if (h.GetSkillValue(DefaultSkills.Roguery) >= 30 && h.HitPoints > 40)
                     {
-                        // Création dynamique du texte avec variable
                         TextObject info = new TextObject("{=css_agent_info}Roguery: {SKILL} | HP: {HP}%");
                         info.SetTextVariable("SKILL", h.GetSkillValue(DefaultSkills.Roguery));
                         info.SetTextVariable("HP", h.HitPoints);
@@ -73,12 +88,10 @@ namespace CompanionSabotageSystem
 
             if (spies.Count == 0)
             {
-                // Message d'erreur localisé
                 InformationManager.DisplayMessage(new InformationMessage(new TextObject("{=css_no_agents}No agents available (Roguery 30+ required).").ToString(), Colors.Red));
                 return;
             }
 
-            // Titres et boutons localisés
             MBInformationManager.ShowMultiSelectionInquiry(new MultiSelectionInquiryData(
                 new TextObject("{=css_menu_title}Infiltration Mission").ToString(),
                 new TextObject("{=css_menu_desc}Select an agent for the operation.").ToString(),

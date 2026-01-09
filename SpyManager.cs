@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Actions;
-using TaleWorlds.CampaignSystem.Party; // Important pour MobileParty
+using TaleWorlds.CampaignSystem.Party;
 using TaleWorlds.CampaignSystem.Settlements;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
@@ -14,7 +14,7 @@ namespace CompanionSabotageSystem
     public class SpyManager
     {
         [SaveableField(1)]
-        private Dictionary<Hero, SpyData> _activeSpies = new Dictionary<Hero, SpyData>();
+        private readonly Dictionary<Hero, SpyData> _activeSpies = new Dictionary<Hero, SpyData>();
 
         public void DeploySpy(Hero spy, Settlement target)
         {
@@ -67,25 +67,20 @@ namespace CompanionSabotageSystem
 
                 var data = _activeSpies[spy];
 
-                // --- CORRECTIF ANTI-CRASH (Jailbreak) ---
-                // Si l'espion est prisonnier, cela signifie qu'il a été capturé (par nous ou par le jeu).
-                // Il faut impérativement arrêter de le gérer (le laisser Active/Prisoner) et le retirer du système.
-                // Sinon, le Watchdog ci-dessous va le remettre en "Disabled", ce qui fera crasher la scène de prison.
+                // 1. SÉCURITÉ PRISONNIER : S'il est prisonnier, on arrête de le gérer immédiatement.
                 if (spy.IsPrisoner)
                 {
                     toRemove.Add(spy);
                     continue;
                 }
-                // ----------------------------------------
 
-                // Watchdog (Sécurité anti-réapparition taverne)
-                // Ne s'applique que s'il n'est PAS prisonnier (géré au dessus) et PAS en retour.
+                // 2. Watchdog : Force l'état Disabled si le jeu vanilla l'a réactivé par erreur
                 if (data.State != SpyState.ReturningToPlayer && spy.HeroState != Hero.CharacterStates.Disabled)
                 {
                     spy.ChangeState(Hero.CharacterStates.Disabled);
                 }
 
-                // Security Check (Siège / Changement de faction)
+                // 3. SÉCURITÉ SIÈGE & FACTION : On annule si la situation change
                 if (data.State != SpyState.ReturningToPlayer)
                 {
                     if (data.TargetSettlement.IsUnderSiege || data.TargetSettlement.MapFaction == MobileParty.MainParty.MapFaction)
@@ -121,8 +116,6 @@ namespace CompanionSabotageSystem
                         bool captured = CheckForCapture(spy, data.TargetSettlement);
                         if (captured)
                         {
-                            // S'il est capturé, on l'ajoute à toRemove.
-                            // Grâce au correctif en haut de boucle, s'il reste un tick, le Watchdog ne le touchera pas.
                             toRemove.Add(spy);
                         }
                         else
@@ -163,28 +156,21 @@ namespace CompanionSabotageSystem
 
             if (MBRandom.RandomFloat * 100 < riskFactor)
             {
-                // Capture : On réactive le héros pour qu'il puisse être prisonnier
                 if (spy.HeroState == Hero.CharacterStates.Disabled)
                     spy.ChangeState(Hero.CharacterStates.Active);
 
-                // On vérifie qu'il y a bien un parti pour le prendre (Garnison ou Parti lié)
                 PartyBase jailer = target.Party ?? target.Town?.GarrisonParty?.Party;
 
                 if (jailer != null)
                 {
+                    // Action Vanilla : Elle gère la capture ET l'affichage du message.
                     TakePrisonerAction.Apply(jailer, spy);
-
-                    TextObject msg = new TextObject("{=css_captured_msg}{AGENT} has been captured in {TARGET}!");
-                    msg.SetTextVariable("AGENT", spy.Name);
-                    msg.SetTextVariable("TARGET", target.Name);
-                    MBInformationManager.AddQuickInformation(msg);
                     return true;
                 }
                 else
                 {
-                    // Fallback si pas de garnison : Il rentre blessé
                     InformationManager.DisplayMessage(new InformationMessage("Capture failed (No Garrison), agent returning wounded.", Colors.Red));
-                    return false; // Il continuera sa mission ou rentrera au prochain tick
+                    return false;
                 }
             }
             return false;
