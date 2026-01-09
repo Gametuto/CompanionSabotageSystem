@@ -14,7 +14,7 @@ namespace CompanionSabotageSystem
     public class SpyManager
     {
         [SaveableField(1)]
-        private Dictionary<Hero, SpyData> _activeSpies = new Dictionary<Hero, SpyData>();
+        private readonly Dictionary<Hero, SpyData> _activeSpies = new Dictionary<Hero, SpyData>();
 
         public void DeploySpy(Hero spy, Settlement target)
         {
