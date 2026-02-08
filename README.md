@@ -74,7 +74,7 @@ The project follows a clean architecture separating the source code from the bui
 
 ## Credits
 
-* **Author:** Gametuto
+* **Author:** Jules Noël--Audoux
 * **License:** MIT
 
 ---
